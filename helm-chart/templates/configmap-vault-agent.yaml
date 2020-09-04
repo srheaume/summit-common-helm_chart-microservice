@@ -1,0 +1,81 @@
+{{- if .Values.vault.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "summit-common-helm_chart-svc.fullname" . }}-vault-agent
+  labels:
+  {{- include "summit-common-helm_chart-svc.labels" . | nindent 4 }}
+data:
+  config-init.hcl: |
+    exit_after_auth = true
+    pid_file = "/home/vault/pidfile"
+
+    auto_auth {
+      method "kubernetes" {
+        mount_path = "auth/kubernetes"
+        config = {
+          role = "{{ include "summit-common-helm_chart-svc.vaultRole" . }}"
+        }
+      }
+
+      sink "file" {
+        config = {
+          path = "/home/vault/.vault-token"
+        }
+      }
+
+      sink "file" {
+        config = {
+          path = "/vault/secrets/.vault-token"
+        }
+      }
+    }
+
+    vault {
+      address = "{{ .Values.vault.address }}"
+    }
+
+    {{- range .Values.databases }}
+    template {
+      contents = "{{`{{- with secret \"`}}{{ .engine }}/creds/{{ .name }}-database-creds-reader\"{{` -}}`}}{{ .engine }}://{{`{{ .Data.username }}:{{ .Data.password }}@`}}{{ .host }}/{{ .name }}?sslmode=disable{{`{{- end }}`}}"
+      destination = "/vault/secrets/{{ .name }}"
+    }
+    {{- end }}
+  config.hcl: |
+    exit_after_auth = false
+    pid_file = "/home/vault/pidfile"
+
+    auto_auth {
+      method "kubernetes" {
+        mount_path = "auth/kubernetes"
+        config = {
+          role = "{{ include "summit-common-helm_chart-svc.vaultRole" . }}"
+        }
+      }
+
+      sink "file" {
+        config = {
+          path = "/home/vault/.vault-token"
+        }
+      }
+
+      sink "file" {
+        config = {
+          path = "/vault/secrets/.vault-token"
+        }
+      }
+    }
+
+    vault {
+      address = "{{ .Values.vault.address }}"
+    }
+
+    {{- range .Values.databases }}
+    template {
+      contents = "{{`{{- with secret \"`}}{{ .engine }}/creds/{{ .name }}-database-creds-reader\"{{` -}}`}}{{ .engine }}://{{`{{ .Data.username }}:{{ .Data.password }}@`}}{{ .host }}/{{ .name }}?sslmode=disable{{`{{- end }}`}}"
+      destination = "/vault/secrets/{{ .name }}"
+    }
+    {{- end }}
+...
+{{- end }}
